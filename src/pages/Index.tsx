@@ -2,6 +2,7 @@
 import Header from "@/components/Header";
 import LocationSelector from "@/components/LocationSelector";
 import TrendingSection from "@/components/TrendingSection";
+import ScrapedPosts from "@/components/ScrapedPosts";
 
 const Index = () => {
   return (
@@ -9,8 +10,12 @@ const Index = () => {
       <Header />
       <LocationSelector />
       
-      <main className="pb-20">
+      <main className="pb-20 px-4 max-w-4xl mx-auto">
         <TrendingSection />
+        
+        <div className="mt-8">
+          <ScrapedPosts location="New York, NY" />
+        </div>
       </main>
       
       {/* Bottom gradient for mobile feel */}
