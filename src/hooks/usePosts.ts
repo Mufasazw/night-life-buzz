@@ -37,19 +37,19 @@ export const usePosts = (location?: string, limit = 20) => {
 export const useRunScraper = () => {
   const runScraper = async (location = 'New York, NY') => {
     try {
-      const response = await fetch('/api/twitter-scraper', {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify({ location }),
+      console.log('Calling twitter-scraper function with location:', location)
+      
+      const { data, error } = await supabase.functions.invoke('twitter-scraper', {
+        body: { location },
       })
       
-      if (!response.ok) {
-        throw new Error('Failed to run scraper')
+      if (error) {
+        console.error('Supabase function error:', error)
+        throw error
       }
       
-      return await response.json()
+      console.log('Scraper response:', data)
+      return data
     } catch (error) {
       console.error('Error running scraper:', error)
       throw error
