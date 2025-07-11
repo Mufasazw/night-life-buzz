@@ -5,9 +5,9 @@ import type { Tables } from '@/integrations/supabase/types'
 
 export type Post = Tables<'posts'>
 
-export const usePosts = (location?: string, limit = 20) => {
+export const usePosts = (location?: string, platform?: string, limit = 20) => {
   return useQuery({
-    queryKey: ['posts', location, limit],
+    queryKey: ['posts', location, platform, limit],
     queryFn: async () => {
       let query = supabase
         .from('posts')
@@ -18,6 +18,10 @@ export const usePosts = (location?: string, limit = 20) => {
       
       if (location) {
         query = query.ilike('location', `%${location}%`)
+      }
+      
+      if (platform) {
+        query = query.eq('platform', platform)
       }
       
       const { data, error } = await query
@@ -35,11 +39,11 @@ export const usePosts = (location?: string, limit = 20) => {
 }
 
 export const useRunScraper = () => {
-  const runScraper = async (location = 'New York, NY') => {
+  const runScraper = async (location = 'New York, NY', platform = 'twitter') => {
     try {
-      console.log('Calling twitter-scraper function with location:', location)
+      console.log(`Calling ${platform}-scraper function with location:`, location)
       
-      const { data, error } = await supabase.functions.invoke('twitter-scraper', {
+      const { data, error } = await supabase.functions.invoke(`${platform}-scraper`, {
         body: { location },
       })
       
@@ -56,5 +60,21 @@ export const useRunScraper = () => {
     }
   }
   
-  return { runScraper }
+  const runAllScrapers = async (location = 'New York, NY') => {
+    const platforms = ['twitter', 'instagram', 'tiktok']
+    const results = []
+    
+    for (const platform of platforms) {
+      try {
+        const result = await runScraper(location, platform)
+        results.push({ platform, success: true, result })
+      } catch (error) {
+        results.push({ platform, success: false, error: error.message })
+      }
+    }
+    
+    return results
+  }
+  
+  return { runScraper, runAllScrapers }
 }

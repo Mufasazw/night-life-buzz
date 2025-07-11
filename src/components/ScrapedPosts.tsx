@@ -3,6 +3,7 @@ import { useState } from 'react'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select'
 import { Heart, MessageCircle, Share, ExternalLink, Sparkles } from 'lucide-react'
 import { usePosts, useRunScraper } from '@/hooks/usePosts'
 import { toast } from '@/hooks/use-toast'
@@ -110,17 +111,24 @@ const PostCard = ({ post }: { post: Post }) => {
 
 export default function ScrapedPosts({ location }: ScrapedPostsProps) {
   const [isRunning, setIsRunning] = useState(false)
-  const { data: posts, isLoading, error, refetch } = usePosts(location)
-  const { runScraper } = useRunScraper()
+  const [selectedPlatform, setSelectedPlatform] = useState<string>('all')
+  const { data: posts, isLoading, error, refetch } = usePosts(
+    location, 
+    selectedPlatform === 'all' ? undefined : selectedPlatform
+  )
+  const { runAllScrapers } = useRunScraper()
 
-  const handleRunScraper = async () => {
+  const handleRunAllScrapers = async () => {
     setIsRunning(true)
     try {
-      await runScraper(location)
+      const results = await runAllScrapers(location)
+      const successCount = results.filter(r => r.success).length
+      
       toast({
-        title: "Scraper Started",
-        description: "Successfully started scraping posts. Results will appear shortly.",
+        title: "Scrapers Started",
+        description: `Successfully started ${successCount} out of 3 scrapers. Results will appear shortly.`,
       })
+      
       // Refetch posts after a short delay
       setTimeout(() => {
         refetch()
@@ -128,7 +136,7 @@ export default function ScrapedPosts({ location }: ScrapedPostsProps) {
     } catch (error) {
       toast({
         title: "Scraper Error",
-        description: "Failed to start scraper. Please try again.",
+        description: "Failed to start scrapers. Please try again.",
         variant: "destructive",
       })
     } finally {
@@ -148,15 +156,28 @@ export default function ScrapedPosts({ location }: ScrapedPostsProps) {
 
   return (
     <div className="space-y-4">
-      <div className="flex items-center justify-between">
+      <div className="flex items-center justify-between flex-wrap gap-4">
         <CardTitle className="text-2xl font-bold">Live Party Feed</CardTitle>
-        <Button 
-          onClick={handleRunScraper} 
-          disabled={isRunning}
-          className="bg-gradient-to-r from-purple-600 to-pink-600 hover:from-purple-700 hover:to-pink-700"
-        >
-          {isRunning ? 'Running...' : 'Refresh Feed'}
-        </Button>
+        <div className="flex items-center gap-4">
+          <Select value={selectedPlatform} onValueChange={setSelectedPlatform}>
+            <SelectTrigger className="w-[140px]">
+              <SelectValue placeholder="Platform" />
+            </SelectTrigger>
+            <SelectContent>
+              <SelectItem value="all">All Platforms</SelectItem>
+              <SelectItem value="twitter">Twitter</SelectItem>
+              <SelectItem value="instagram">Instagram</SelectItem>
+              <SelectItem value="tiktok">TikTok</SelectItem>
+            </SelectContent>
+          </Select>
+          <Button 
+            onClick={handleRunAllScrapers} 
+            disabled={isRunning}
+            className="bg-gradient-to-r from-purple-600 to-pink-600 hover:from-purple-700 hover:to-pink-700"
+          >
+            {isRunning ? 'Running...' : 'Refresh All Feeds'}
+          </Button>
+        </div>
       </div>
       
       {isLoading ? (
@@ -174,7 +195,8 @@ export default function ScrapedPosts({ location }: ScrapedPostsProps) {
       ) : posts && posts.length > 0 ? (
         <div>
           <p className="text-sm text-muted-foreground mb-4">
-            Showing {posts.length} hottest posts {location && `in ${location}`}
+            Showing {posts.length} hottest posts {location && `in ${location}`} 
+            {selectedPlatform !== 'all' && ` from ${selectedPlatform}`}
           </p>
           {posts.map((post) => (
             <PostCard key={post.id} post={post} />
@@ -184,7 +206,7 @@ export default function ScrapedPosts({ location }: ScrapedPostsProps) {
         <Card>
           <CardContent className="p-6 text-center">
             <p className="text-muted-foreground">
-              No posts found. Try running the scraper to fetch the latest party posts!
+              No posts found. Try running the scrapers to fetch the latest party posts!
             </p>
           </CardContent>
         </Card>
