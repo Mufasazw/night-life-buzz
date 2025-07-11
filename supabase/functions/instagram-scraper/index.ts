@@ -1,4 +1,3 @@
-
 import { createClient } from 'https://esm.sh/@supabase/supabase-js@2'
 
 const supabase = createClient(
@@ -186,22 +185,25 @@ function parseInstagramPostHTML(postHtml: string, location: string, index: numbe
 }
 
 function getMockData(location?: string): any[] {
+  // Use consistent IDs for mock data to prevent duplicates
+  const baseDate = new Date('2024-01-15T12:00:00Z').getTime()
+  
   return [
     {
-      id: `ig_mock_${Date.now()}_1`,
+      id: 'instagram_mock_001', // Consistent ID
       username: 'harare_nightlife',
       text: 'Club night was amazing! 🎉💃 #party #nightlife #clubHarare',
       likes: 156,
-      created_at: new Date().toISOString(),
+      created_at: new Date(baseDate).toISOString(),
       media_url: null,
       location: location || 'Harare'
     },
     {
-      id: `ig_mock_${Date.now()}_2`,
+      id: 'instagram_mock_002', // Consistent ID
       username: 'zw_party_vibes',
       text: 'Best vibes in the city! 🔥✨ #club #turnup #vibes',
       likes: 89,
-      created_at: new Date(Date.now() - 1000 * 60 * 30).toISOString(),
+      created_at: new Date(baseDate - 1000 * 60 * 30).toISOString(),
       media_url: null,
       location: location || 'Harare'
     }
@@ -209,18 +211,24 @@ function getMockData(location?: string): any[] {
 }
 
 async function checkExistingPost(platform: string, externalId: string): Promise<boolean> {
-  const { data, error } = await supabase
-    .from('posts')
-    .select('id')
-    .eq('platform', platform)
-    .eq('external_id', externalId)
-    .single()
-  
-  if (error && error.code !== 'PGRST116') { // PGRST116 = no rows returned
-    console.error('Error checking existing post:', error)
+  try {
+    const { data, error } = await supabase
+      .from('posts')
+      .select('id')
+      .eq('platform', platform)
+      .eq('external_id', externalId)
+      .maybeSingle()
+    
+    if (error) {
+      console.error('Error checking existing post:', error)
+      return false
+    }
+    
+    return !!data
+  } catch (error) {
+    console.error('Error in checkExistingPost:', error)
+    return false
   }
-  
-  return !!data
 }
 
 async function savePostsToDatabase(posts: any[]) {
