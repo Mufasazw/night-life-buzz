@@ -121,12 +121,15 @@ export default function ScrapedPosts({ location }: ScrapedPostsProps) {
   const handleRunAllScrapers = async () => {
     setIsRunning(true)
     try {
+      console.log('Starting all scrapers...')
       const results = await runAllScrapers(location)
+      console.log('All scrapers completed:', results)
+      
       const successCount = results.filter(r => r.success).length
       
       toast({
-        title: "Scrapers Started",
-        description: `Successfully started ${successCount} out of 3 scrapers. Results will appear shortly.`,
+        title: "Scrapers Completed",
+        description: `Successfully completed ${successCount} out of 3 scrapers. ${successCount > 0 ? 'New posts will appear shortly.' : 'Check logs for issues.'}`,
       })
       
       // Refetch posts after a short delay
@@ -134,6 +137,7 @@ export default function ScrapedPosts({ location }: ScrapedPostsProps) {
         refetch()
       }, 3000)
     } catch (error) {
+      console.error('Error running all scrapers:', error)
       toast({
         title: "Scraper Error",
         description: "Failed to start scrapers. Please try again.",

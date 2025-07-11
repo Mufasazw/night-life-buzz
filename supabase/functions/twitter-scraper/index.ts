@@ -253,12 +253,39 @@ function getMockData(location?: string): any[] {
   ]
 }
 
+async function checkExistingPost(platform: string, externalId: string): Promise<boolean> {
+  const { data, error } = await supabase
+    .from('posts')
+    .select('id')
+    .eq('platform', platform)
+    .eq('external_id', externalId)
+    .single()
+  
+  if (error && error.code !== 'PGRST116') { // PGRST116 = no rows returned
+    console.error('Error checking existing post:', error)
+  }
+  
+  return !!data
+}
+
 async function savePostsToDatabase(posts: any[]) {
-  const postsToInsert = posts.map(post => {
+  const postsToInsert = []
+  
+  for (const post of posts) {
     const keywords = extractKeywords(post.text)
-    const vibeScore = calculateVibeScore(post.text, post.likes)
+    if (keywords.length === 0) continue // Skip posts without party keywords
     
-    return {
+    const vibeScore = calculateVibeScore(post.text, post.likes)
+    const externalId = post.id
+    
+    // Check if post already exists
+    const exists = await checkExistingPost('twitter', externalId)
+    if (exists) {
+      console.log(`Skipping duplicate post: ${externalId}`)
+      continue
+    }
+    
+    postsToInsert.push({
       platform: 'twitter',
       username: post.username,
       caption: post.text,
@@ -269,9 +296,9 @@ async function savePostsToDatabase(posts: any[]) {
       keywords: keywords,
       vibe_score: vibeScore,
       post_url: `https://twitter.com/${post.username}/status/${post.id}`,
-      external_id: post.id
-    }
-  }).filter(post => post.keywords.length > 0) // Only save posts with party keywords
+      external_id: externalId
+    })
+  }
   
   if (postsToInsert.length > 0) {
     const { data, error } = await supabase
@@ -283,10 +310,11 @@ async function savePostsToDatabase(posts: any[]) {
       throw error
     }
     
-    console.log(`Saved ${postsToInsert.length} posts to database`)
+    console.log(`Saved ${postsToInsert.length} new posts to database`)
     return data
   }
   
+  console.log('No new posts to save')
   return []
 }
 
@@ -300,13 +328,13 @@ Deno.serve(async (req) => {
     const scrapedPosts = await scrapeTwitterPosts(location)
     console.log(`Scraped ${scrapedPosts.length} posts`)
     
-    // Save to database
+    // Save to database with deduplication
     const savedPosts = await savePostsToDatabase(scrapedPosts)
     
     return new Response(
       JSON.stringify({
         success: true,
-        message: `Successfully scraped and saved ${savedPosts?.length || 0} posts`,
+        message: `Successfully scraped and saved ${savedPosts?.length || 0} new posts`,
         location: location,
         scraped_count: scrapedPosts.length,
         saved_count: savedPosts?.length || 0
@@ -317,7 +345,7 @@ Deno.serve(async (req) => {
       }
     )
   } catch (error) {
-    console.error('Scraper error:', error)
+    console.error('Twitter scraper error:', error)
     return new Response(
       JSON.stringify({
         success: false,

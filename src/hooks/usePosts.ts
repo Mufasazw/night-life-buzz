@@ -66,9 +66,12 @@ export const useRunScraper = () => {
     
     for (const platform of platforms) {
       try {
+        console.log(`Starting ${platform} scraper...`)
         const result = await runScraper(location, platform)
         results.push({ platform, success: true, result })
+        console.log(`${platform} scraper completed successfully`)
       } catch (error) {
+        console.error(`${platform} scraper failed:`, error)
         results.push({ platform, success: false, error: error.message })
       }
     }

@@ -190,30 +190,57 @@ function getMockData(location?: string): any[] {
     {
       id: `ig_mock_${Date.now()}_1`,
       username: 'harare_nightlife',
-      text: 'Epic night at the club! 🎉🔥 #party #clubHarare #nightlife',
-      likes: 67,
+      text: 'Club night was amazing! 🎉💃 #party #nightlife #clubHarare',
+      likes: 156,
       created_at: new Date().toISOString(),
       media_url: null,
       location: location || 'Harare'
     },
     {
       id: `ig_mock_${Date.now()}_2`,
-      username: 'party_central_zw',
-      text: 'Turn up vibes all night! 💃🕺 #turnup #party #vibes',
+      username: 'zw_party_vibes',
+      text: 'Best vibes in the city! 🔥✨ #club #turnup #vibes',
       likes: 89,
-      created_at: new Date(Date.now() - 1000 * 60 * 45).toISOString(),
+      created_at: new Date(Date.now() - 1000 * 60 * 30).toISOString(),
       media_url: null,
       location: location || 'Harare'
     }
   ]
 }
 
+async function checkExistingPost(platform: string, externalId: string): Promise<boolean> {
+  const { data, error } = await supabase
+    .from('posts')
+    .select('id')
+    .eq('platform', platform)
+    .eq('external_id', externalId)
+    .single()
+  
+  if (error && error.code !== 'PGRST116') { // PGRST116 = no rows returned
+    console.error('Error checking existing post:', error)
+  }
+  
+  return !!data
+}
+
 async function savePostsToDatabase(posts: any[]) {
-  const postsToInsert = posts.map(post => {
+  const postsToInsert = []
+  
+  for (const post of posts) {
     const keywords = extractKeywords(post.text)
-    const vibeScore = calculateVibeScore(post.text, post.likes)
+    if (keywords.length === 0) continue // Skip posts without party keywords
     
-    return {
+    const vibeScore = calculateVibeScore(post.text, post.likes)
+    const externalId = post.id
+    
+    // Check if post already exists
+    const exists = await checkExistingPost('instagram', externalId)
+    if (exists) {
+      console.log(`Skipping duplicate post: ${externalId}`)
+      continue
+    }
+    
+    postsToInsert.push({
       platform: 'instagram',
       username: post.username,
       caption: post.text,
@@ -224,9 +251,9 @@ async function savePostsToDatabase(posts: any[]) {
       keywords: keywords,
       vibe_score: vibeScore,
       post_url: `https://instagram.com/p/${post.id}`,
-      external_id: post.id
-    }
-  }).filter(post => post.keywords.length > 0)
+      external_id: externalId
+    })
+  }
   
   if (postsToInsert.length > 0) {
     const { data, error } = await supabase
@@ -238,10 +265,11 @@ async function savePostsToDatabase(posts: any[]) {
       throw error
     }
     
-    console.log(`Saved ${postsToInsert.length} posts to database`)
+    console.log(`Saved ${postsToInsert.length} new posts to database`)
     return data
   }
   
+  console.log('No new posts to save')
   return []
 }
 
@@ -259,7 +287,7 @@ Deno.serve(async (req) => {
     return new Response(
       JSON.stringify({
         success: true,
-        message: `Successfully scraped and saved ${savedPosts?.length || 0} Instagram posts`,
+        message: `Successfully scraped and saved ${savedPosts?.length || 0} new Instagram posts`,
         location: location,
         scraped_count: scrapedPosts.length,
         saved_count: savedPosts?.length || 0
